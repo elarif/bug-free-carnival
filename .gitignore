@@ -1,0 +1,42 @@
+# Build
+target/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Env / secrets
+.env
+.env.local
+*.secret
+secrets/
+infra/helm/**/secret-values.yaml
+
+# Node (frontend futur)
+node_modules/
+dist/
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+
+# Kubernetes local
+kubeconfig-local
+*.kubeconfig
