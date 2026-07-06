@@ -16,11 +16,11 @@
   <dependencies>
     <dependency>
       <groupId>com.mysaas</groupId>
-      <artifactId>mysaas-core</artifactId>
+      <artifactId>mysaas-authz</artifactId>
     </dependency>
     <dependency>
       <groupId>com.mysaas</groupId>
-      <artifactId>mysaas-tenant</artifactId>
+      <artifactId>mysaas-core</artifactId>
     </dependency>
     <dependency>
       <groupId>com.mysaas</groupId>
@@ -32,15 +32,7 @@
     </dependency>
     <dependency>
       <groupId>com.mysaas</groupId>
-      <artifactId>mysaas-authz</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.vertx</groupId>
-      <artifactId>vertx-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.vertx</groupId>
-      <artifactId>vertx-web</artifactId>
+      <artifactId>mysaas-tenant</artifactId>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
@@ -51,6 +43,14 @@
       <artifactId>vertx-config-yaml</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-web</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
@@ -59,8 +59,8 @@
       <artifactId>slf4j-simple</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -69,8 +69,8 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>io.rest-assured</groupId>
-      <artifactId>rest-assured</artifactId>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -78,12 +78,16 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>com.diffplug.spotless</groupId>
-        <artifactId>spotless-maven-plugin</artifactId>
+        <groupId>com.github.ekryd.sortpom</groupId>
+        <artifactId>sortpom-maven-plugin</artifactId>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
       </plugin>
     </plugins>
   </build>

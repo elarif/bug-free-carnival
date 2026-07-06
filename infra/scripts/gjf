@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# gjf — wrapper pour google-java-format
+# Télécharge la dernière version dans ~/.config/google-java-format (cache)
+# puis formate (ou vérifie) les fichiers Java passés en arguments.
+#
+# Usage:
+#   gjf <file.java> [file2.java ...]   # formate en place
+#   gjf --check <file.java> [...]      # vérifie uniquement (exit 1 si sale)
+#   gjf --version                       # affiche la version
+#   gjf --update                        # force le téléchargement de la dernière version
+
+set -euo pipefail
+
+CACHE_DIR="${GJF_CACHE_DIR:-$HOME/.config/google-java-format}"
+JAR="$CACHE_DIR/google-java-format-all-deps.jar"
+VERSION_FILE="$CACHE_DIR/version.txt"
+REPO="google/google-java-format"
+
+red()    { printf '\033[31m%s\033[0m\n' "$*"; }
+green()  { printf '\033[32m%s\033[0m\n' "$*"; }
+yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
+
+get_latest_version() {
+  curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
+    | grep '"tag_name"' \
+    | head -1 \
+    | sed -E 's/.*"v?([^"]+)".*/\1/'
+}
+
+download_version() {
+  local version="$1"
+  local url="https://github.com/${REPO}/releases/download/v${version}/google-java-format-${version}-all-deps.jar"
+  mkdir -p "$CACHE_DIR"
+  printf '%s Téléchargement de google-java-format %s...\n' "$(yellow INFO)" "$version"
+  curl -fsSL "$url" -o "$JAR"
+  printf '%s' "$version" > "$VERSION_FILE"
+  printf '%s Installé: %s\n' "$(green OK)" "$JAR"
+}
+
+ensure_installed() {
+  if [[ -f "$JAR" && -f "$VERSION_FILE" ]]; then
+    return 0
+  fi
+  local latest
+  latest=$(get_latest_version)
+  download_version "$latest"
+}
+
+update() {
+  local latest
+  latest=$(get_latest_version)
+  local current=""
+  [[ -f "$VERSION_FILE" ]] && current=$(cat "$VERSION_FILE")
+  if [[ "$latest" == "$current" && -f "$JAR" ]]; then
+    printf '%s Déjà à jour (%s)\n' "$(green OK)" "$latest"
+    return 0
+  fi
+  download_version "$latest"
+}
+
+show_version() {
+  ensure_installed
+  java -jar "$JAR" --version
+}
+
+main() {
+  if [[ $# -eq 0 ]]; then
+    cat <<'USAGE'
+gjf — wrapper google-java-format
+
+Usage:
+  gjf <file.java> [file2.java ...]   Formate en place
+  gjf --check <file.java> [...]       Vérifie (exit 1 si non conforme)
+  gjf --version                       Affiche la version
+  gjf --update                        Force la mise à jour vers la dernière version
+  gjf --install <version>             Installe une version spécifique
+
+Variables d'environnement:
+  GJF_CACHE_DIR  Répertoire de cache (défaut: ~/.config/google-java-format)
+USAGE
+    exit 0
+  fi
+
+  case "$1" in
+    --version|-V)
+      show_version
+      ;;
+    --update|-u)
+      update
+      ;;
+    --install|-i)
+      if [[ $# -lt 2 ]]; then
+        red "Erreur: --install nécessite une version"
+        exit 1
+      fi
+      download_version "$2"
+      ;;
+    --check|-c)
+      shift
+      ensure_installed
+      local dirty=0
+      local files=()
+      for arg in "$@"; do
+        if [[ -d "$arg" ]]; then
+          while IFS= read -r -d '' f; do
+            files+=("$f")
+          done < <(find "$arg" -name '*.java' -type f -print0)
+        else
+          files+=("$arg")
+        fi
+      done
+      for f in "${files[@]}"; do
+        if ! java -jar "$JAR" --dry-run --set-exit-if-changed "$f" >/dev/null 2>&1; then
+          red "  ✗ $f"
+          dirty=1
+        fi
+      done
+      if [[ $dirty -eq 0 ]]; then
+        green "Tous les fichiers sont conformes."
+      else
+        red "Des fichiers ne sont pas conformes. Lancez: gjf <fichiers ou répertoires>"
+        exit 1
+      fi
+      ;;
+    --*)
+      red "Option inconnue: $1"
+      exit 1
+      ;;
+    *)
+      ensure_installed
+      local files=()
+      for arg in "$@"; do
+        if [[ -d "$arg" ]]; then
+          while IFS= read -r -d '' f; do
+            files+=("$f")
+          done < <(find "$arg" -name '*.java' -type f -print0)
+        else
+          files+=("$arg")
+        fi
+      done
+      for f in "${files[@]}"; do
+        printf '%s Formatage: %s\n' "$(yellow INFO)" "$f"
+        java -jar "$JAR" --replace "$f"
+      done
+      green "Terminé."
+      ;;
+  esac
+}
+
+main "$@"

@@ -20,21 +20,22 @@
   </modules>
 
   <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <assertj.version>3.27.3</assertj.version>
+    <exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
+    <hikari.version>6.2.1</hikari.version>
+    <jackson.version>2.18.2</jackson.version>
+    <junit.version>5.11.4</junit.version>
+    <liquibase.version>4.31.1</liquibase.version>
     <maven.compiler.release>25</maven.compiler.release>
     <maven.compiler.source>25</maven.compiler.source>
     <maven.compiler.target>25</maven.compiler.target>
+    <postgres.version>42.7.5</postgres.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <rest-assured.version>5.5.0</rest-assured.version>
+    <slf4j.version>2.0.16</slf4j.version>
 
     <!-- Versions -->
     <vertx.version>4.5.14</vertx.version>
-    <junit.version>5.11.4</junit.version>
-    <rest-assured.version>5.5.0</rest-assured.version>
-    <postgres.version>42.7.5</postgres.version>
-    <hikari.version>6.2.1</hikari.version>
-    <liquibase.version>4.31.1</liquibase.version>
-    <slf4j.version>2.0.16</slf4j.version>
-    <jackson.version>2.18.2</jackson.version>
-    <assertj.version>3.27.3</assertj.version>
   </properties>
 
   <dependencyManagement>
@@ -55,15 +56,20 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.mysaas</groupId>
+        <artifactId>mysaas-authz</artifactId>
+        <version>${project.version}</version>
+      </dependency>
       <!-- Modules internes -->
       <dependency>
         <groupId>com.mysaas</groupId>
         <artifactId>mysaas-core</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.mysaas</groupId>
-        <artifactId>mysaas-tenant</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -73,13 +79,38 @@
       </dependency>
       <dependency>
         <groupId>com.mysaas</groupId>
-        <artifactId>mysaas-authz</artifactId>
+        <artifactId>mysaas-oauth</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
         <groupId>com.mysaas</groupId>
-        <artifactId>mysaas-oauth</artifactId>
+        <artifactId>mysaas-tenant</artifactId>
         <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP</artifactId>
+        <version>${hikari.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.liquibase</groupId>
+        <artifactId>liquibase-core</artifactId>
+        <version>${liquibase.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>${postgres.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-simple</artifactId>
+        <version>${slf4j.version}</version>
       </dependency>
       <!-- Libs -->
       <dependency>
@@ -94,42 +125,59 @@
         <version>${assertj.version}</version>
         <scope>test</scope>
       </dependency>
-      <dependency>
-        <groupId>org.postgresql</groupId>
-        <artifactId>postgresql</artifactId>
-        <version>${postgres.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.zaxxer</groupId>
-        <artifactId>HikariCP</artifactId>
-        <version>${hikari.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.liquibase</groupId>
-        <artifactId>liquibase-core</artifactId>
-        <version>${liquibase.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-api</artifactId>
-        <version>${slf4j.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-simple</artifactId>
-        <version>${slf4j.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.fasterxml.jackson.core</groupId>
-        <artifactId>jackson-databind</artifactId>
-        <version>${jackson.version}</version>
-      </dependency>
     </dependencies>
   </dependencyManagement>
 
   <build>
     <pluginManagement>
       <plugins>
+
+        <!-- SortPom (tri des POM) -->
+        <plugin>
+          <groupId>com.github.ekryd.sortpom</groupId>
+          <artifactId>sortpom-maven-plugin</artifactId>
+          <version>4.0.0</version>
+          <configuration>
+            <expandEmptyElements>false</expandEmptyElements>
+            <spaceBeforeCloseEmptyElement>true</spaceBeforeCloseEmptyElement>
+            <nrOfIndentSpace>2</nrOfIndentSpace>
+            <sortDependencies>scope,groupId,artifactId</sortDependencies>
+            <sortPlugins>groupId,artifactId</sortPlugins>
+            <sortProperties>true</sortProperties>
+            <createBackupFile>false</createBackupFile>
+            <verifyFail>stop</verifyFail>
+          </configuration>
+          <executions>
+            <execution>
+              <id>sortpom-check</id>
+              <goals>
+                <goal>verify</goal>
+              </goals>
+              <phase>verify</phase>
+            </execution>
+          </executions>
+        </plugin>
+
+        <!-- Checkstyle -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-checkstyle-plugin</artifactId>
+          <version>3.6.0</version>
+          <configuration>
+            <configLocation>${maven.multiModuleProjectDirectory}/checkstyle.xml</configLocation>
+            <consoleOutput>true</consoleOutput>
+            <failsOnError>true</failsOnError>
+            <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          </configuration>
+          <executions>
+            <execution>
+              <goals>
+                <goal>check</goal>
+              </goals>
+              <phase>verify</phase>
+            </execution>
+          </executions>
+        </plugin>
         <!-- Compiler -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -156,56 +204,24 @@
           </configuration>
         </plugin>
 
-        <!-- Spotless (formatage) -->
+        <!-- google-java-format (via wrapper gjf) — formatage Java -->
         <plugin>
-          <groupId>com.diffplug.spotless</groupId>
-          <artifactId>spotless-maven-plugin</artifactId>
-          <version>2.44.3</version>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>${exec-maven-plugin.version}</version>
           <configuration>
-            <java>
-              <importOrder>
-                <order>java,javax,org,com,com.mysaas,</order>
-              </importOrder>
-              <removeUnusedImports />
-              <eclipse>
-                <version>4.34</version>
-                <file>${maven.multiModuleProjectDirectory}/eclipse-formatter.xml</file>
-              </eclipse>
-              <trimTrailingWhitespace />
-              <endWithNewline />
-            </java>
-            <pom>
-              <sortPom>
-                <expandEmptyElements>false</expandEmptyElements>
-                <spaceBeforeCloseEmptyElement>true</spaceBeforeCloseEmptyElement>
-              </sortPom>
-            </pom>
+            <executable>${maven.multiModuleProjectDirectory}/../infra/scripts/gjf</executable>
+            <arguments>
+              <argument>--check</argument>
+              <argument>${project.basedir}/src/main/java</argument>
+              <argument>${project.basedir}/src/test/java</argument>
+            </arguments>
           </configuration>
           <executions>
             <execution>
+              <id>gjf-check</id>
               <goals>
-                <goal>check</goal>
-              </goals>
-              <phase>verify</phase>
-            </execution>
-          </executions>
-        </plugin>
-
-        <!-- Checkstyle -->
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-checkstyle-plugin</artifactId>
-          <version>3.6.0</version>
-          <configuration>
-            <configLocation>${maven.multiModuleProjectDirectory}/checkstyle.xml</configLocation>
-            <consoleOutput>true</consoleOutput>
-            <failsOnError>true</failsOnError>
-            <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          </configuration>
-          <executions>
-            <execution>
-              <goals>
-                <goal>check</goal>
+                <goal>exec</goal>
               </goals>
               <phase>verify</phase>
             </execution>

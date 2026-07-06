@@ -1,7 +1,8 @@
 package com.mysaas.oauth;
 
 /**
- * Placeholder du module oauth. Sera implémenté en Phase 6 (HydraTokenFilter, validation JWT, introspection fallback).
+ * Placeholder du module oauth. Sera implémenté en Phase 6 (HydraTokenFilter, validation JWT,
+ * introspection fallback).
  */
 public final class OauthModule {
 

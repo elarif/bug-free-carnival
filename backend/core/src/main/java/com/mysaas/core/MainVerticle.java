@@ -1,13 +1,13 @@
 package com.mysaas.core;
 
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Promise;
-
 /**
- * Verticle principal placeholder du module core. Sera étendu par le module api (HttpServerVerticle) en Phase 3.
+ * Verticle principal placeholder du module core. Sera étendu par le module api (HttpServerVerticle)
+ * en Phase 3.
  */
 public class MainVerticle extends AbstractVerticle {
 
