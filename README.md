@@ -10,7 +10,7 @@ et un frontend à définir. Le projet est au stade bootstrap.
 | Identité     | Ory Kratos (inscription, login, sessions)              |
 | OAuth2/OIDC  | Ory Hydra (tokens JWT signés localement)               |
 | Permissions  | Ory Keto (relation tuples par tenant)                   |
-| Backend      | Java 25 + Vert.x (Maven multi-module)                   |
+| Backend      | Java 25 + Vert.x 5.1.3 (Maven multi-module)              |
 | Frontend     | À définir (React/Vue/Svelte)                            |
 | Base de données | PostgreSQL — un schéma par tenant                  |
 | Migrations   | Liquibase (multi-schéma programmatique)                |
@@ -99,7 +99,7 @@ Installation de Docker Engine, k3d, kubectl, helm. Création de l'arborescence d
 `.editorconfig`), ADR 0000 et runbook d'installation.
 
 **Phase 1 — Squelette Maven multi-module**
-POM parent avec BOMs (Vert.x 4.5.14, Jackson, Postgres, JUnit5, REST-assured).
+POM parent avec BOMs (Vert.x 5.1.3, Jackson, Postgres, JUnit5, REST-assured).
 Modules : `core`, `tenant`, `identity`, `authz`, `oauth`, `api`. Module `core` minimal
 avec `MainVerticle` placeholder. Formatage Java via google-java-format (wrapper
 `infra/scripts/gjf`, JAR `all-deps` autonome — Spotless écarté, incompatible Java 25).
