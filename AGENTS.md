@@ -12,9 +12,20 @@ mvn -q compile                # compile rapide sans tests
 
 ## Lint / format
 
-- **Spotless** (formatage) + **Checkstyle** (style) configurés dans le POM parent.
-- En cas d'échec Spotless, lancer `mvn spotless:apply` puis refaire `mvn verify`.
-- Vérifier systématiquement après toute modification Java : `mvn -q -pl <module> checkstyle:check spotless:check`
+- **google-java-format** (formatage Java) via le wrapper `infra/scripts/gjf`
+  (cache dans `~/.config/google-java-format/`). Lancé automatiquement par
+  `exec-maven-plugin` pendant `mvn verify` (`gjf --check` sur `src/main/java` et
+  `src/test/java`).
+- **SortPom** (tri des POMs) via `sortpom-maven-plugin` 4.0.0. Lancé pendant
+  `mvn verify`. Pour trier : `mvn sortpom:sort`.
+- **Checkstyle** (style) via `maven-checkstyle-plugin` 3.6.0, config
+  `backend/checkstyle.xml`. Lancé pendant `mvn verify`.
+- En cas d'échec gjf : formater avec `infra/scripts/gjf <fichiers ou répertoires>`
+  puis relancer `mvn verify`.
+- Vérifier systématiquement après toute modification Java :
+  `mvn -q -pl <module> checkstyle:check` et `infra/scripts/gjf --check <fichiers>`.
+- **Note** : Spotless n'est plus utilisé (google-java-format 1.25.2 embarqué par
+  Spotless est incompatible Java 25). Voir ADR 0000 et le commit `4ef2812`.
 
 ## Infra
 
