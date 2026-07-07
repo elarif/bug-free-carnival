@@ -32,8 +32,9 @@ mvn -q compile                # compile rapide sans tests
 - Cluster k3d : `bash infra/k3d/up.sh`, `bash infra/k3d/down.sh`
 - Smoke Ory : `bash infra/scripts/smoke-ory.sh`
 - Init tenants : `bash infra/scripts/init-tenants.sh`
-- Charts Helm : `helm lint infra/helm/<chart>/` (non applicable — values only, charts via repo)
-- Manifests : `kubeval infra/manifests/`
+- Init Ory (client OAuth2 + tuples Keto) : `bash infra/scripts/init-ory.sh`
+- Chart umbrella : `helm dep update infra/helm/mysaas && helm upgrade --install mysaas infra/helm/mysaas -n ory`
+- Charts Helm : `helm lint infra/helm/mysaas/`
 - Voir `docs/runbook/k3d-cluster.md` pour le détail
 
 ## Tests

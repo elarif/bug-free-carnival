@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# up.sh — Créer le cluster k3d local + registre + namespaces + déployer Ory + Postgres + Mailhog
+# up.sh — Créer le cluster k3d local + déployer la stack Ory via chart umbrella Helm
 set -euo pipefail
 
 CLUSTER_NAME="${CLUSTER_NAME:-mysaas}"
@@ -15,8 +15,7 @@ MAILHOG_PORT="${MAILHOG_PORT:-8025}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-HELM_DIR="$REPO_ROOT/infra/helm"
-MANIFESTS_DIR="$REPO_ROOT/infra/manifests"
+CHART_DIR="$REPO_ROOT/infra/helm/mysaas"
 
 red()    { printf '\033[31m%s\033[0m\n' "$*"; }
 green()  { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -55,79 +54,76 @@ else
     --k3s-arg "--disable=traefik@server:0"
 fi
 
+# Exporter le kubeconfig pour l'utilisateur courant
+mkdir -p "$HOME/.kube"
 k3d kubeconfig get "$CLUSTER_NAME" > "$HOME/.kube/config" 2>/dev/null || true
+chmod 600 "$HOME/.kube/config"
 kubectl config use-context "k3d-$CLUSTER_NAME" 2>/dev/null || true
 
-# --- 2. Namespaces ---
-step "Création des namespaces"
+# --- 2. Namespace ---
+step "Création du namespace"
 kubectl get ns ory >/dev/null 2>&1 || kubectl create ns ory
-kubectl get ns app >/dev/null 2>&1 || kubectl create ns app
 
-# --- 3. Postgres ---
-step "Déploiement Postgres (bitnami)"
-helm upgrade --install postgres bitnami/postgresql \
+# --- 3. Dépendances du chart umbrella ---
+step "Résolution des dépendances Helm"
+helm dependency update "$CHART_DIR" 2>&1 | tail -10
+
+# --- 4. Déploiement de la stack complète ---
+step "Déploiement de la stack Ory (chart umbrella mysaas)"
+
+# Phase 1: installer avec migrations Ory désactivées (Postgres démarre d'abord)
+helm upgrade --install mysaas "$CHART_DIR" \
   --namespace ory \
-  --values "$HELM_DIR/postgres/values.yaml" \
-  --wait --timeout 180s 2>&1 | tail -5 || yellow "Postgres: helm en cours"
+  --set kratos.kratos.automigration.enabled=false \
+  --set hydra.hydra.automigration.enabled=false \
+  --set keto.keto.automigration.enabled=false \
+  --wait --timeout 180s 2>&1 | tail -10
 
 # Attendre que Postgres soit prêt
 printf '%s Attente Postgres...\n' "$(yellow INFO)"
+PG_POD=""
 for i in $(seq 1 30); do
-  if kubectl exec -n ory postgres-postgresql-0 -- env PGPASSWORD=mysaas-dev pg_isready -U mysaas 2>/dev/null; then
-    green "Postgres prêt"
+  PG_POD=$(kubectl get pod -n ory -l app.kubernetes.io/name=postgresql -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  if [[ -n "$PG_POD" ]] && kubectl exec -n ory "$PG_POD" -- env PGPASSWORD=mysaas-dev pg_isready -U mysaas 2>/dev/null; then
+    green "Postgres prêt ($PG_POD)"
     break
   fi
   sleep 2
 done
 
-# --- 4. Schémas Ory (avant déploiement) ---
-step "Création des schémas Ory dans Postgres"
-PG_POD=$(kubectl get pod -n ory -l app.kubernetes.io/name=postgresql -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-if [[ -n "$PG_POD" ]]; then
-  kubectl exec -n ory "$PG_POD" -- env PGPASSWORD=mysaas-dev psql -U mysaas -d mysaas -c \
-    "CREATE SCHEMA IF NOT EXISTS kratos; CREATE SCHEMA IF NOT EXISTS hydra; CREATE SCHEMA IF NOT EXISTS keto;" 2>/dev/null
-  green "Schémas kratos, hydra, keto créés"
+if [[ -z "$PG_POD" ]]; then
+  red "Postgres pod introuvable"
+  exit 1
 fi
 
-# --- 5. Mailhog ---
-step "Déploiement Mailhog"
-helm upgrade --install mailhog mailhog/mailhog \
-  --namespace ory \
-  --values "$HELM_DIR/mailhog/values.yaml" 2>&1 | tail -3 || true
+# Créer les schémas Ory + tenants
+step "Création des schémas Postgres (Ory + tenants)"
+kubectl exec -n ory "$PG_POD" -- env PGPASSWORD=mysaas-dev psql -U mysaas -d mysaas -c \
+  "CREATE SCHEMA IF NOT EXISTS kratos; CREATE SCHEMA IF NOT EXISTS hydra; CREATE SCHEMA IF NOT EXISTS keto;" 2>/dev/null
+green "Schémas Ory créés: kratos, hydra, keto"
 
-# --- 6. ConfigMaps maison ---
-step "Application des manifests maison"
-kubectl apply -f "$MANIFESTS_DIR/" 2>/dev/null || true
-
-# --- 7. Kratos ---
-step "Déploiement Ory Kratos"
-helm upgrade --install kratos ory/kratos \
-  --namespace ory \
-  --values "$HELM_DIR/kratos/values.yaml" 2>&1 | tail -3 || true
-
-# --- 8. Hydra ---
-step "Déploiement Ory Hydra"
-helm upgrade --install hydra ory/hydra \
-  --namespace ory \
-  --values "$HELM_DIR/hydra/values.yaml" 2>&1 | tail -3 || true
-
-# --- 9. Keto ---
-step "Déploiement Ory Keto"
-helm upgrade --install keto ory/keto \
-  --namespace ory \
-  --values "$HELM_DIR/keto/values.yaml" 2>&1 | tail -3 || true
-
-# --- 10. Init Postgres (schémas tenants) ---
-step "Initialisation Postgres (schémas de test)"
 bash "$REPO_ROOT/infra/scripts/init-tenants.sh" || yellow "init-tenants.sh: voir erreurs ci-dessus"
 
-# --- 11. Vérifications ---
+# Phase 2: relancer avec migrations activées (les schémas existent, les migrations réussissent)
+step "Finalisation du déploiement (migrations Ory)"
+# Forcer le recréation des pods pour qu'ils pick up les migrations
+kubectl delete pod -n ory -l app.kubernetes.io/name=kratos --force --grace-period=0 2>/dev/null || true
+kubectl delete pod -n ory -l app.kubernetes.io/name=hydra --force --grace-period=0 2>/dev/null || true
+kubectl delete pod -n ory -l app.kubernetes.io/name=keto --force --grace-period=0 2>/dev/null || true
+helm upgrade --install mysaas "$CHART_DIR" \
+  --namespace ory \
+  --wait --timeout 300s 2>&1 | tail -15
+
+# --- 5. Vérifications ---
 step "Vérifications"
 echo "Pods:"
 kubectl get pods -n ory -o wide 2>/dev/null || true
 echo ""
 echo "Services:"
 kubectl get svc -n ory 2>/dev/null || true
+echo ""
+echo "Jobs (init):"
+kubectl get jobs -n ory 2>/dev/null || true
 
 green ""
 green "Cluster '$CLUSTER_NAME' prêt !"
@@ -135,8 +131,8 @@ green "  Kratos public :  http://localhost:$KRATOS_PUBLIC_PORT"
 green "  Kratos admin  :  http://localhost:$KRATOS_ADMIN_PORT"
 green "  Hydra public  :  http://localhost:$HYDRA_PUBLIC_PORT"
 green "  Hydra admin   :  http://localhost:$HYDRA_ADMIN_PORT"
-green "  Keto public   :  http://localhost:$KETO_PUBLIC_PORT"
-green "  Keto admin    :  http://localhost:$KETO_ADMIN_PORT"
+green "  Keto read     :  http://localhost:$KETO_PUBLIC_PORT"
+green "  Keto write    :  http://localhost:$KETO_ADMIN_PORT"
 green "  Postgres      :  localhost:$POSTGRES_PORT"
 green "  Mailhog UI    :  http://localhost:$MAILHOG_PORT"
 green ""

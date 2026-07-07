@@ -1,0 +1,31 @@
+apiVersion: v2
+name: mysaas
+description: SaaS multi-tenant — Ory (Kratos/Hydra/Keto) + Postgres + Mailhog
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - ory
+  - kratos
+  - hydra
+  - keto
+  - multi-tenant
+  - saas
+maintainers:
+  - name: elarif
+dependencies:
+  - name: postgresql
+    repository: https://charts.bitnami.com/bitnami
+    version: 18.7.12
+  - name: mailhog
+    repository: https://codecentric.github.io/helm-charts
+    version: 5.8.0
+  - name: kratos
+    repository: https://k8s.ory.sh/helm/charts
+    version: 0.62.1
+  - name: hydra
+    repository: https://k8s.ory.sh/helm/charts
+    version: 0.62.1
+  - name: keto
+    repository: https://k8s.ory.sh/helm/charts
+    version: 0.62.1

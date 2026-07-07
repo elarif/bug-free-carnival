@@ -34,6 +34,7 @@ Voir `docs/adr/` pour le détail :
 - **ADR 0000** — Toolchain : Docker Engine + k3d + kubectl + helm
 - **ADR 0001** — Formatage Java : google-java-format via wrapper gjf (Spotless écarté, incompatible Java 25)
 - **ADR 0002** — Déploiement Ory sur k3d avec schémas Postgres séparés
+- **ADR 0003** — Chart Helm umbrella + enrichissements Ory (Phase 2.5)
 - Charts Helm officiels Ory pour Kratos/Hydra ; manifests maison pour Keto
 - Liquibase pour les migrations (multi-schéma programmatique)
 - Registre k3d local (dev) + GHCR (CI)
@@ -74,6 +75,7 @@ Le wrapper `gjf` télécharge google-java-format (JAR `all-deps`) dans
 ```bash
 bash infra/k3d/up.sh              # créer le cluster k3d + Ory + Postgres + Mailhog
 bash infra/scripts/smoke-ory.sh   # vérifier que Kratos/Hydra/Keto répondent
+bash infra/scripts/init-ory.sh    # créer client OAuth2 + tuples Keto de test
 bash infra/k3d/down.sh            # supprimer le cluster
 ```
 
@@ -114,12 +116,14 @@ Tri des POMs via sortpom-maven-plugin 4.0.0. Style via Checkstyle.
 Vérifications : `mvn verify` passe sur les 6 modules (gjf + sortpom + checkstyle + tests).
 
 **Phase 2 — Infra k3d + Ory + Postgres + Mailhog**
-Script `infra/k3d/up.sh` (cluster + registre local + namespaces). Charts Helm officiels
-Ory v0.62.1 pour Kratos/Hydra/Keto (app v26.2.0). Postgres (bitnami) avec schémas séparés
-par service Ory (`kratos`, `hydra`, `keto`) + schémas par tenant (`tenant_*`). Mailhog
-pour le SMTP dev. Mode dev activé (HTTP sans TLS). Scripts `smoke-ory.sh` et
-`init-tenants.sh`. Schéma d'identité Kratos en base64.
-Vérifications : pods Running, health endpoints Ory 200, schémas Postgres présents.
+Chart Helm umbrella `infra/helm/mysaas` (dépendances: postgresql, mailhog, kratos, hydra,
+keto — Ory v0.62.1 / app v26.2.0). Config consolidée dans un seul `values.yaml`. Postgres
+avec schémas séparés par service Ory + schémas par tenant. Kratos enrichi : flows
+recovery/verification/logout, hooks session/revoke_active_sessions, identity schema avec
+trait `tenant_id`. Client OAuth2 Hydra de test. Keto namespaces User/Tenant + tuples de
+test. Scripts `smoke-ory.sh`, `init-tenants.sh`, `init-ory.sh`. Déploiement en 2 phases
+(migrations différées).
+Vérifications : pods Running, 6/6 health endpoints 200, schémas Postgres, client Hydra, tuples Keto.
 
 **Phase 3 — Skeleton API Vert.x**
 `MainVerticle`, `HttpServerVerticle`, router. Endpoints `/health` (liveness) et

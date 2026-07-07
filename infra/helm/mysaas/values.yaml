@@ -1,0 +1,218 @@
+###############################################################################
+# mysaas umbrella chart — values.yaml
+# Single source of truth for the Ory stack (Kratos/Hydra/Keto) + Postgres + Mailhog.
+# Deploy: helm dep update && helm upgrade --install mysaas infra/helm/mysaas -n ory
+###############################################################################
+
+# ---------------------------------------------------------------------------
+# Postgres (bitnami) — un schéma par service Ory + un schéma par tenant
+# ---------------------------------------------------------------------------
+postgresql:
+  auth:
+    postgresPassword: "mysaas-dev"
+    username: "mysaas"
+    password: "mysaas-dev"
+    database: "mysaas"
+  primary:
+    persistence:
+      enabled: false          # dev only — perdre les données au redémarrage du cluster
+    service:
+      type: LoadBalancer
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 500m, memory: 512Mi }
+
+# ---------------------------------------------------------------------------
+# Mailhog — SMTP dev pour le courier Kratos
+# ---------------------------------------------------------------------------
+mailhog:
+  service:
+    type: LoadBalancer
+    port:
+      http: 8025
+      smtp: 1025
+  resources:
+    requests: { cpu: 50m,  memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+
+# ---------------------------------------------------------------------------
+# Ory Kratos — identités, sessions, self-service flows
+# ---------------------------------------------------------------------------
+kratos:
+  kratos:
+    development: true
+    automigration:
+      enabled: true
+      type: job
+    config:
+      serve:
+        public:
+          base_url: http://localhost:4433/
+          cors:
+            enabled: true
+        admin:
+          base_url: http://localhost:4434/
+      dsn: "postgres://mysaas:mysaas-dev@mysaas-postgresql.ory.svc.cluster.local:5432/mysaas?sslmode=disable&search_path=kratos"
+      identity:
+        default_schema_id: user
+        schemas:
+          - id: user
+            # Schema: email (password identifier, verification, recovery) + tenant_id (optionnel)
+            url: base64://eyIkaWQiOiJodHRwczovL3NjaGVtYXMubXlzYWFzLmRldi9rcmF0b3MvaWRlbnRpdHkudXNlci5zY2hlbWEuanNvbiIsIiRzY2hlbWEiOiJodHRwOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LTA3L3NjaGVtYSMiLCJ0aXRsZSI6IlVzZXIiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0cmFpdHMiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsiZW1haWwiOnsidHlwZSI6InN0cmluZyIsImZvcm1hdCI6ImVtYWlsIiwidGl0bGUiOiJFLU1haWwiLCJvcnkuc2gva3JhdG9zIjp7ImNyZWRlbnRpYWxzIjp7InBhc3N3b3JkIjp7ImlkZW50aWZpZXIiOnRydWV9fSwidmVyaWZpY2F0aW9uIjp7InZpYSI6ImVtYWlsIn0sInJlY292ZXJ5Ijp7InZpYSI6ImVtYWlsIn19fSwidGVuYW50X2lkIjp7InR5cGUiOiJzdHJpbmciLCJ0aXRsZSI6IlRlbmFudCBJRCJ9fSwicmVxdWlyZWQiOlsiZW1haWwiXX19fQo=
+      courier:
+        smtp:
+          connection_uri: "smtp://mysaas-mailhog.ory.svc.cluster.local:1025/?disable_starttls=true"
+      selfservice:
+        default_browser_return_url: http://localhost:3000/
+        methods:
+          password:
+            enabled: true
+          code:
+            enabled: true
+        flows:
+          registration:
+            enabled: true
+            ui_url: http://localhost:3000/registration
+            after:
+              password:
+                hooks:
+                  - hook: session
+          login:
+            ui_url: http://localhost:3000/login
+            after:
+              password:
+                hooks:
+                  - hook: revoke_active_sessions
+          settings:
+            ui_url: http://localhost:3000/settings
+          recovery:
+            enabled: true
+            ui_url: http://localhost:3000/recovery
+          verification:
+            enabled: true
+            ui_url: http://localhost:3000/verification
+          logout:
+            after:
+              default_browser_return_url: http://localhost:3000/
+      session:
+        lifespan: 24h
+  secret:
+    enabled: true
+  service:
+    admin:
+      type: LoadBalancer
+      port: 4434
+    public:
+      type: LoadBalancer
+      port: 4433
+
+# ---------------------------------------------------------------------------
+# Ory Hydra — OAuth2/OIDC provider
+# ---------------------------------------------------------------------------
+hydra:
+  hydra:
+    dev: true
+    automigration:
+      enabled: true
+      type: job
+    config:
+      serve:
+        public:
+          cors:
+            enabled: true
+        admin:
+          cors:
+            enabled: true
+      dsn: "postgres://mysaas:mysaas-dev@mysaas-postgresql.ory.svc.cluster.local:5432/mysaas?sslmode=disable&search_path=hydra"
+      urls:
+        self:
+          issuer: http://localhost:4444/
+        login: http://localhost:3000/login
+        consent: http://localhost:3000/consent
+        logout: http://localhost:3000/
+      secrets:
+        system:
+          - "supersecret-please-change-in-production-32chars"
+      oidc:
+        subject_identifiers:
+          supported_types:
+            - public
+            - pairwise
+          pairwise:
+            salt: "another-super-secret-salt-please-change"
+      oauth2:
+        expose_internal_errors: false
+  secret:
+    enabled: true
+  service:
+    public:
+      type: LoadBalancer
+    admin:
+      type: LoadBalancer
+  # hydra-maester: gère les OAuth2Client CRD
+  maester:
+    enabled: true
+
+# ---------------------------------------------------------------------------
+# Ory Keto — permissions (Zanzibar, OPL)
+# ---------------------------------------------------------------------------
+keto:
+  keto:
+    automigration:
+      enabled: true
+      type: job
+    config:
+      serve:
+        read:
+          port: 4466
+        write:
+          port: 4467
+      dsn: "postgres://mysaas:mysaas-dev@mysaas-postgresql.ory.svc.cluster.local:5432/mysaas?sslmode=disable&search_path=keto"
+      namespaces:
+        - id: 0
+          name: User
+        - id: 1
+          name: Tenant
+  secret:
+    enabled: true
+  service:
+    read:
+      enabled: true
+      type: LoadBalancer
+      port: 4466
+    write:
+      enabled: true
+      type: LoadBalancer
+      port: 4467
+
+# ---------------------------------------------------------------------------
+# Paramètres mysaas (consommés par les templates du chart umbrella)
+# ---------------------------------------------------------------------------
+mysaas:
+  # Schémas Postgres à créer au post-install (helm hook)
+  postgresInit:
+    orySchemas:
+      - kratos
+      - hydra
+      - keto
+    tenantSchemas:
+      - default
+      - acme
+      - demo
+  # Client OAuth2 de test (CRD OAuth2Client via hydra-maester)
+  oauth2Client:
+    enabled: true
+    clientID: mysaas-backend
+    clientName: "mysaas Backend (M2M + authorization_code)"
+    grantTypes:
+      - client_credentials
+      - authorization_code
+      - refresh_token
+    responseTypes:
+      - code
+      - token
+    scope: "openid offline offline_access"
+    redirectUris:
+      - http://localhost:3000/callback
+    secretName: mysaas-oauth2-client-secret
+    secretValue: "mysaas-backend-secret-dev"

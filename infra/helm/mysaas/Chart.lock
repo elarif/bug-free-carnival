@@ -1,0 +1,18 @@
+dependencies:
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 18.7.12
+- name: mailhog
+  repository: https://codecentric.github.io/helm-charts
+  version: 5.8.0
+- name: kratos
+  repository: https://k8s.ory.sh/helm/charts
+  version: 0.62.1
+- name: hydra
+  repository: https://k8s.ory.sh/helm/charts
+  version: 0.62.1
+- name: keto
+  repository: https://k8s.ory.sh/helm/charts
+  version: 0.62.1
+digest: sha256:02e1c511d10951e4a9ca9a56768fc4e70937d1caabcea8e4bfc12aa62859c855
+generated: "2026-07-07T19:25:01.55494925+02:00"
