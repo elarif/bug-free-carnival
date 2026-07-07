@@ -41,16 +41,33 @@ bash infra/scripts/init-tenants.sh
 
 ## Endpoints locaux
 
-| Service      | URL                       |
-|--------------|---------------------------|
-| Kratos public | http://localhost:4433    |
-| Kratos admin  | http://localhost:4434    |
-| Hydra public  | http://localhost:4444    |
-| Hydra admin   | http://localhost:4445    |
-| Keto read     | http://localhost:4466    |
-| Keto write    | http://localhost:4467    |
-| Postgres      | localhost:5432           |
-| Mailhog UI    | http://localhost:8025    |
+| Service      | URL                                | Endpoint de test             |
+|--------------|------------------------------------|------------------------------|
+| Kratos public | http://localhost:4433             | `/health/alive` (200)        |
+| Kratos admin  | http://localhost:4434             | `/health/alive` (200)        |
+| Hydra public  | http://localhost:4444             | `/.well-known/openid-configuration` (200) |
+| Hydra admin   | http://localhost:4445             | `/health/alive` (200)        |
+| Keto read     | http://localhost:4466             | `/health/alive` (200)        |
+| Keto write    | http://localhost:4467             | `/health/alive` (200)        |
+| Postgres      | localhost:5432                    | `psql -U mysaas -d mysaas`   |
+| Mailhog UI    | http://localhost:8025             | UI web                       |
+
+> **Note** : Les services Ory ne servent pas de page à la racine (`/` → 404).
+> C'est le comportement attendu — ils n'exposent que des endpoints d'API.
+> Les health checks se font sur `/health/alive` (200).
+
+### Endpoints API utiles
+
+| Service  | Endpoint                              | Méthode  | Description                  |
+|----------|---------------------------------------|----------|------------------------------|
+| Kratos   | `/self-service/login/browser`         | GET      | Initialise un flow de login  |
+| Kratos   | `/self-service/registration/browser`  | GET      | Initialise un flow d'inscription |
+| Kratos   | `/sessions/whoami`                    | GET      | Valide une session           |
+| Hydra    | `/.well-known/openid-configuration`   | GET      | OIDC discovery               |
+| Hydra    | `/oauth2/auth`                        | GET      | Authorisation OAuth2         |
+| Hydra    | `/admin/clients`                      | GET/POST | Gestion des clients OAuth2   |
+| Keto     | `/read/<namespace>/<object>/<relation>` | GET    | Vérifie une permission       |
+| Keto     | `/write`                              | PUT      | Écrit une relation tuple     |
 
 ## Configuration Postgres
 

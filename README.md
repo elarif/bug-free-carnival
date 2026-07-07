@@ -77,6 +77,11 @@ bash infra/scripts/smoke-ory.sh   # vérifier que Kratos/Hydra/Keto répondent
 bash infra/k3d/down.sh            # supprimer le cluster
 ```
 
+Les services Ory ne servent pas de page à la racine (`/` → 404). C'est normal —
+ils n'exposent que des endpoints d'API. Les health checks se font sur
+`/health/alive` (200). Voir `docs/runbook/k3d-cluster.md` pour la liste
+complète des endpoints.
+
 ## Plan de bootstrap
 
 Le projet suit un plan en 8 phases avec vérifications à chaque jalon.
