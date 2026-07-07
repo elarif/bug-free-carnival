@@ -1,0 +1,27 @@
+keto:
+  automigration:
+    enabled: true
+    type: job
+  config:
+    serve:
+      read:
+        port: 4466
+      write:
+        port: 4467
+    dsn: "postgres://mysaas:mysaas-dev@postgres-postgresql.ory.svc.cluster.local:5432/mysaas?sslmode=disable&search_path=keto"
+    namespaces:
+      - id: 0
+        name: tenant
+
+secret:
+  enabled: true
+
+service:
+  read:
+    enabled: true
+    type: LoadBalancer
+    port: 4466
+  write:
+    enabled: true
+    type: LoadBalancer
+    port: 4467

@@ -29,10 +29,12 @@ mvn -q compile                # compile rapide sans tests
 
 ## Infra
 
-- Cluster k3d : `bash infra/k3d/up.sh` (à créer Phase 2), `bash infra/k3d/down.sh`
+- Cluster k3d : `bash infra/k3d/up.sh`, `bash infra/k3d/down.sh`
 - Smoke Ory : `bash infra/scripts/smoke-ory.sh`
-- Charts Helm : `helm lint infra/helm/<chart>/`
+- Init tenants : `bash infra/scripts/init-tenants.sh`
+- Charts Helm : `helm lint infra/helm/<chart>/` (non applicable — values only, charts via repo)
 - Manifests : `kubeval infra/manifests/`
+- Voir `docs/runbook/k3d-cluster.md` pour le détail
 
 ## Tests
 

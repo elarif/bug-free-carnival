@@ -33,6 +33,7 @@ Voir `docs/adr/` pour le détail :
 
 - **ADR 0000** — Toolchain : Docker Engine + k3d + kubectl + helm
 - **ADR 0001** — Formatage Java : google-java-format via wrapper gjf (Spotless écarté, incompatible Java 25)
+- **ADR 0002** — Déploiement Ory sur k3d avec schémas Postgres séparés
 - Charts Helm officiels Ory pour Kratos/Hydra ; manifests maison pour Keto
 - Liquibase pour les migrations (multi-schéma programmatique)
 - Registre k3d local (dev) + GHCR (CI)
@@ -71,8 +72,9 @@ Le wrapper `gjf` télécharge google-java-format (JAR `all-deps`) dans
 ### Infra locale
 
 ```bash
-bash infra/k3d/up.sh          # créer le cluster k3d + Ory + Postgres (à venir Phase 2)
-bash infra/scripts/smoke-ory.sh   # vérifier que Kratos/Hydra/Keto répondent (à venir)
+bash infra/k3d/up.sh              # créer le cluster k3d + Ory + Postgres + Mailhog
+bash infra/scripts/smoke-ory.sh   # vérifier que Kratos/Hydra/Keto répondent
+bash infra/k3d/down.sh            # supprimer le cluster
 ```
 
 ## Plan de bootstrap
@@ -83,7 +85,7 @@ Le projet suit un plan en 8 phases avec vérifications à chaque jalon.
 |-------|----------------------------------------------------|--------------|
 | 0     | Préparation outillage + squelette repo             | ✅ Terminée  |
 | 1     | Squelette Maven multi-module (core/tenant/…)       | ✅ Terminée  |
-| 2     | Infra k3d + Ory (Kratos/Keto/Hydra) + Postgres      | À venir      |
+| 2     | Infra k3d + Ory (Kratos/Keto/Hydra) + Postgres      | ✅ Terminée  |
 | 3     | Skeleton API Vert.x (/health, /ready)              | À venir      |
 | 4     | Couche tenant (résolution + schémas Postgres)      | À venir      |
 | 5     | Intégration Kratos (sessions + webhooks)           | À venir      |
@@ -108,9 +110,11 @@ Vérifications : `mvn verify` passe sur les 6 modules (gjf + sortpom + checkstyl
 
 **Phase 2 — Infra k3d + Ory + Postgres + Mailhog**
 Script `infra/k3d/up.sh` (cluster + registre local + namespaces). Charts Helm officiels
-pour Kratos/Hydra, manifests maison pour Keto. Postgres (bitnami) avec schémas par
-tenant. Mailhog pour le SMTP dev. Scripts `smoke-ory.sh` et `init-tenants.sh`.
-Vérifications : pods Running, health endpoints Ory OK, schémas Postgres présents.
+Ory v0.62.1 pour Kratos/Hydra/Keto (app v26.2.0). Postgres (bitnami) avec schémas séparés
+par service Ory (`kratos`, `hydra`, `keto`) + schémas par tenant (`tenant_*`). Mailhog
+pour le SMTP dev. Mode dev activé (HTTP sans TLS). Scripts `smoke-ory.sh` et
+`init-tenants.sh`. Schéma d'identité Kratos en base64.
+Vérifications : pods Running, health endpoints Ory 200, schémas Postgres présents.
 
 **Phase 3 — Skeleton API Vert.x**
 `MainVerticle`, `HttpServerVerticle`, router. Endpoints `/health` (liveness) et
