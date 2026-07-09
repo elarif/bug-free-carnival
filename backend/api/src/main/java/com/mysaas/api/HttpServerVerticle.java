@@ -2,9 +2,15 @@ package com.mysaas.api;
 
 import com.mysaas.api.config.AppConfig;
 import com.mysaas.api.health.HealthHandler;
+import com.mysaas.tenant.TenantAdminHandler;
+import com.mysaas.tenant.TenantComponents;
+import com.mysaas.tenant.TenantFilter;
+import com.mysaas.tenant.TenantResolver;
 import io.vertx.core.Future;
 import io.vertx.core.VerticleBase;
 import io.vertx.ext.web.Router;
+import java.util.Optional;
+import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,6 +20,7 @@ public class HttpServerVerticle extends VerticleBase {
   private static final Logger LOG = LoggerFactory.getLogger(HttpServerVerticle.class);
 
   private final AppConfig appConfig;
+  private Optional<TenantComponents> tenants = Optional.empty();
 
   public HttpServerVerticle(AppConfig appConfig) {
     this.appConfig = appConfig;
@@ -22,6 +29,9 @@ public class HttpServerVerticle extends VerticleBase {
   @Override
   public Future<?> start() {
     Router router = Router.router(vertx);
+
+    // Couche tenant : résolution + filtre + admin (si DB configurée)
+    initTenantLayer(router);
 
     HealthHandler.ReadyChecker readyChecker = createReadyChecker();
     new HealthHandler(readyChecker).mount(router);
@@ -35,17 +45,43 @@ public class HttpServerVerticle extends VerticleBase {
         .mapEmpty();
   }
 
-  /**
-   * Crée le checker de readiness (ping Postgres via TCP).
-   *
-   * <p>En Phase 3, le check est un simple ping TCP sur le port Postgres. En Phase 4, il sera
-   * remplacé par un vrai ping JDBC via le pool de connexions.
-   */
+  /** Initialise la couche tenant (DataSource HikariCP + migrations + filtre + admin CRUD). */
+  private void initTenantLayer(Router router) {
+    try {
+      TenantComponents components =
+          TenantComponents.create(appConfig.dbUrl(), appConfig.dbUser(), appConfig.dbPassword());
+      components.migrate();
+      this.tenants = Optional.of(components);
+
+      new TenantFilter(new TenantResolver(components.registry())).mount(router);
+      new TenantAdminHandler(components.registry(), components.schemaManager()).mount(router);
+      LOG.info("Couche tenant initialisée (registry JDBC + migrations public.tenants)");
+    } catch (Exception e) {
+      LOG.warn(
+          "Couche tenant désactivée (DB non joignable): {} — démarrage en mode dégradé",
+          e.getMessage());
+    }
+  }
+
+  /** Crée le checker de readiness : ping JDBC si la couche tenant est active, sinon ping TCP. */
   private HealthHandler.ReadyChecker createReadyChecker() {
     return () -> {
+      Optional<DataSource> ds = tenants.map(TenantComponents::dataSource);
+      if (ds.isPresent()) {
+        LOG.debug("Readiness: ping JDBC Postgres");
+        return vertx
+            .executeBlocking(
+                () -> {
+                  try (var conn = ds.get().getConnection()) {
+                    conn.isValid(2);
+                    return null;
+                  }
+                })
+            .mapEmpty();
+      }
       String host = extractHost(appConfig.dbUrl());
       int port = extractPort(appConfig.dbUrl());
-      LOG.debug("Readiness: ping Postgres {}:{}", host, port);
+      LOG.debug("Readiness: ping TCP Postgres {}:{}", host, port);
       return vertx
           .createNetClient()
           .connect(port, host)

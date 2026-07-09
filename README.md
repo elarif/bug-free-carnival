@@ -94,7 +94,7 @@ Le projet suit un plan en 8 phases avec vérifications à chaque jalon.
 | 1     | Squelette Maven multi-module (core/tenant/…)       | ✅ Terminée  |
 | 2     | Infra k3d + Ory (Kratos/Keto/Hydra) + Postgres      | ✅ Terminée  |
 | 3     | Skeleton API Vert.x (/health, /ready)               | ✅ Terminée  |
-| 4     | Couche tenant (résolution + schémas Postgres)      | À venir      |
+| 4     | Couche tenant (résolution + schémas Postgres)      | ✅ Terminée  |
 | 5     | Intégration Kratos (sessions + webhooks)           | À venir      |
 | 6     | Intégration Hydra (resource server, JWT)           | À venir      |
 | 7     | Intégration Keto (permissions par tenant)           | À venir      |
@@ -137,6 +137,15 @@ Vérifications : `mvn -pl api verify` ✅, runtime `curl /health` → 200, `curl
 `RoutingContext`. `TenantSchemaManager` (création/migration schéma Postgres par tenant
 via Liquibase). Table `public.tenants` (registry) + CRUD admin. Filtre `TenantFilter`.
 Vérifications : tests unitaires + tests API contract, création de tenant → schéma créé.
+
+Implémentation : `TenantContext` (record), `TenantRegistry` (interface) + `JdbcTenantRegistry`
+(table `public.tenants`) / `InMemoryTenantRegistry`. `TenantSchemaManager` (interface) +
+`JdbcTenantSchemaManager` (DataSource HikariCP) / `InMemoryTenantSchemaManager`. `TenantResolver`,
+`TenantFilter` (order -100, exempte `/health`, `/ready`, `/admin/*`). `TenantAdminHandler`
+(CRUD `/admin/tenants` + validation slug). `TenantDbMigrator` (Liquibase, changelog
+`tenants-changelog.xml`). `TenantComponents` (factory prod HikariCP). Câblage dans
+`HttpServerVerticle` (mode dégradé si DB injoignable). 24 tests (10 unit + 5 filter + 8 contract + 1 module).
+Vérifications : `mvn verify` ✅, `mvn -pl tenant verify` ✅.
 
 **Phase 5 — Intégration Kratos**
 Client HTTP Vert.x vers Kratos `/sessions/whoami`. `KratosSessionFilter` (validation
