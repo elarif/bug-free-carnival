@@ -93,7 +93,7 @@ Le projet suit un plan en 8 phases avec vérifications à chaque jalon.
 | 0     | Préparation outillage + squelette repo             | ✅ Terminée  |
 | 1     | Squelette Maven multi-module (core/tenant/…)       | ✅ Terminée  |
 | 2     | Infra k3d + Ory (Kratos/Keto/Hydra) + Postgres      | ✅ Terminée  |
-| 3     | Skeleton API Vert.x (/health, /ready)              | À venir      |
+| 3     | Skeleton API Vert.x (/health, /ready)               | ✅ Terminée  |
 | 4     | Couche tenant (résolution + schémas Postgres)      | À venir      |
 | 5     | Intégration Kratos (sessions + webhooks)           | À venir      |
 | 6     | Intégration Hydra (resource server, JWT)           | À venir      |
@@ -126,10 +126,11 @@ test. Scripts `smoke-ory.sh`, `init-tenants.sh`, `init-ory.sh`. Déploiement en 
 Vérifications : pods Running, 6/6 health endpoints 200, schémas Postgres, client Hydra, tuples Keto.
 
 **Phase 3 — Skeleton API Vert.x**
-`MainVerticle`, `HttpServerVerticle`, router. Endpoints `/health` (liveness) et
-`/ready` (readiness = ping Postgres). Config env via `ConfigRetriever`. Tests
-REST-assured (200/503 sur `/ready`).
-Vérifications : `mvn -pl api verify`, déploiement k3d, `curl /health` → 200.
+`MainVerticle` (VerticleBase v5, `main()` inline — Launcher retiré en v5) déploie
+`HttpServerVerticle`. Router Vert.x Web avec `/health` (liveness → 200) et `/ready`
+(readiness → ping TCP Postgres, 503 si down). Config via env vars (`AppConfig`).
+Tests vertx-junit5 + WebClient (2 tests: `/health` 200, `/ready` 503).
+Vérifications : `mvn -pl api verify` ✅, runtime `curl /health` → 200, `curl /ready` → 503.
 
 **Phase 4 — Couche tenant**
 `TenantResolver` (header `X-Tenant` ou sous-domaine). `TenantContext` propagé via
