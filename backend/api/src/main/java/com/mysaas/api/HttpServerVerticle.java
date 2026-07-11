@@ -2,6 +2,8 @@ package com.mysaas.api;
 
 import com.mysaas.api.config.AppConfig;
 import com.mysaas.api.health.HealthHandler;
+import com.mysaas.identity.IdentityComponents;
+import com.mysaas.identity.RegistrationWebhookHandler;
 import com.mysaas.tenant.TenantAdminHandler;
 import com.mysaas.tenant.TenantComponents;
 import com.mysaas.tenant.TenantFilter;
@@ -21,6 +23,7 @@ public class HttpServerVerticle extends VerticleBase {
 
   private final AppConfig appConfig;
   private Optional<TenantComponents> tenants = Optional.empty();
+  private Optional<IdentityComponents> identity = Optional.empty();
 
   public HttpServerVerticle(AppConfig appConfig) {
     this.appConfig = appConfig;
@@ -32,6 +35,9 @@ public class HttpServerVerticle extends VerticleBase {
 
     // Couche tenant : résolution + filtre + admin (si DB configurée)
     initTenantLayer(router);
+
+    // Couche identity : session Kratos + webhook after-registration
+    initIdentityLayer(router);
 
     HealthHandler.ReadyChecker readyChecker = createReadyChecker();
     new HealthHandler(readyChecker).mount(router);
@@ -59,6 +65,25 @@ public class HttpServerVerticle extends VerticleBase {
     } catch (Exception e) {
       LOG.warn(
           "Couche tenant désactivée (DB non joignable): {} — démarrage en mode dégradé",
+          e.getMessage());
+    }
+  }
+
+  /** Initialise la couche identity (KratosSessionFilter + webhook after-registration). */
+  private void initIdentityLayer(Router router) {
+    try {
+      IdentityComponents components = IdentityComponents.create(vertx, appConfig.kratosPublicUrl());
+      this.identity = Optional.of(components);
+
+      components.sessionFilter().mount(router);
+      if (tenants.isPresent()) {
+        TenantComponents tc = tenants.get();
+        new RegistrationWebhookHandler(tc.registry(), tc.schemaManager()).mount(router);
+      }
+      LOG.info("Couche identity initialisée (Kratos public: {})", appConfig.kratosPublicUrl());
+    } catch (Exception e) {
+      LOG.warn(
+          "Couche identity désactivée (Kratos non configuré): {} — démarrage en mode dégradé",
           e.getMessage());
     }
   }

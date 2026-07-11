@@ -23,8 +23,9 @@ public final class TenantFilter {
   /** Endpoints qui ne nécessitent pas de tenant. */
   private static final java.util.Set<String> EXEMPT_PATHS = java.util.Set.of("/health", "/ready");
 
-  /** Préfixes d'endpoints qui ne nécessitent pas de tenant (ex: admin global). */
-  private static final java.util.Set<String> EXEMPT_PREFIXES = java.util.Set.of("/admin/");
+  /** Préfixes d'endpoints qui ne nécessitent pas de tenant (ex: admin global, webhooks Kratos). */
+  private static final java.util.Set<String> EXEMPT_PREFIXES =
+      java.util.Set.of("/admin/", "/webhooks/");
 
   private final TenantResolver resolver;
 

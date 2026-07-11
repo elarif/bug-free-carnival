@@ -36,6 +36,7 @@
 
     <!-- Versions -->
     <vertx.version>5.1.3</vertx.version>
+    <wiremock.version>3.13.1</wiremock.version>
   </properties>
 
   <dependencyManagement>
@@ -124,6 +125,18 @@
         <artifactId>assertj-core</artifactId>
         <version>${assertj.version}</version>
         <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.wiremock</groupId>
+        <artifactId>wiremock</artifactId>
+        <version>${wiremock.version}</version>
+        <scope>test</scope>
+        <exclusions>
+          <exclusion>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
     </dependencies>
   </dependencyManagement>

@@ -95,7 +95,7 @@ Le projet suit un plan en 8 phases avec vérifications à chaque jalon.
 | 2     | Infra k3d + Ory (Kratos/Keto/Hydra) + Postgres      | ✅ Terminée  |
 | 3     | Skeleton API Vert.x (/health, /ready)               | ✅ Terminée  |
 | 4     | Couche tenant (résolution + schémas Postgres)      | ✅ Terminée  |
-| 5     | Intégration Kratos (sessions + webhooks)           | À venir      |
+| 5     | Intégration Kratos (sessions + webhooks)           | ✅ Terminée  |
 | 6     | Intégration Hydra (resource server, JWT)           | À venir      |
 | 7     | Intégration Keto (permissions par tenant)           | À venir      |
 | 8     | Pipeline CI + documentation                         | À venir      |
@@ -152,6 +152,18 @@ Client HTTP Vert.x vers Kratos `/sessions/whoami`. `KratosSessionFilter` (valida
 cookie/session, injection `Identity` dans le contexte). Endpoint webhook
 (after registration) → provisioning tenant par défaut. Tests WireMock + REST-assured.
 Vérifications : `mvn -pl identity verify`, smoke réel login → `/whoami` → 200.
+
+Implémentation : `Identity` (record — id, tenantId, email, traits). `KratosClient`
+(WebClient Vert.x → `/sessions/whoami`, Future<Identity>). `KratosSessionException`
+(statusCode 401/403/500). `KratosSessionFilter` (order -90, exempt `/health`, `/ready`,
+`/admin/*`, `/webhooks/*` ; 401 si session invalide, 503 si Kratos injoignable).
+`RegistrationWebhookHandler` (`POST /webhooks/kratos/after-registration` — provisioning
+tenant par défaut dérivé du domaine email si `tenant_id` absent, ou création du tenant
+indiqué s'il n'existe pas). `IdentityComponents` (factory prod WebClient). Câblage dans
+`HttpServerVerticle` (mode dégradé si Kratos injoignable). 22 nouveaux tests (4 unit
+Identity + 4 KratosClient WireMock + 6 KratosSessionFilter + 5 RegistrationWebhook +
+2 IdentityComponents + 4 API contract intégration).
+Vérifications : `mvn verify` ✅, `mvn -pl identity verify` ✅.
 
 **Phase 6 — Intégration Hydra (resource server)**
 Validation JWT Bearer localement (JWKS Hydra) + introspection fallback.
