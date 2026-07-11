@@ -96,7 +96,7 @@ Le projet suit un plan en 8 phases avec vérifications à chaque jalon.
 | 3     | Skeleton API Vert.x (/health, /ready)               | ✅ Terminée  |
 | 4     | Couche tenant (résolution + schémas Postgres)      | ✅ Terminée  |
 | 5     | Intégration Kratos (sessions + webhooks)           | ✅ Terminée  |
-| 6     | Intégration Hydra (resource server, JWT)           | À venir      |
+| 6     | Intégration Hydra (resource server, JWT)           | ✅ Terminée  |
 | 7     | Intégration Keto (permissions par tenant)           | À venir      |
 | 8     | Pipeline CI + documentation                         | À venir      |
 
@@ -170,6 +170,21 @@ Validation JWT Bearer localement (JWKS Hydra) + introspection fallback.
 `HydraTokenFilter` (subject, scopes, tenant claim). Endpoint protégé `/me` d'exemple.
 Tests token valide/invalide/expiré.
 Vérifications : `mvn -pl oauth verify`, `curl -H "Authorization: Bearer <jwt>" /me` → 200.
+
+Implémentation : `TokenPrincipal` (record — subject, scopes, tenantId, issuer ; parsing
+depuis claims JWT ou réponse introspection). `TokenValidationException` (statusCode
+401/503). `HydraTokenValidator` (charge JWKS Hydra via WebClient, crée `JWTAuth`
+vertx-auth-jwt, valide signature + issuer + expiration). `HydraIntrospectionClient`
+(fallback tokens opaques via `POST /admin/oauth2/introspect` avec client credentials).
+`HydraTokenFilter` (order -80, extrait Bearer, valide JWT puis fallback introspection,
+injecte `TokenPrincipal` ; 401 si invalide, 503 si Hydra injoignable ; exempt `/health`,
+`/ready`, `/admin/*`, `/webhooks/*`). `OauthComponents` (factory prod). Endpoint `/me`
+(retourne subject, tenant_id, issuer, scopes). Câblage dans `HttpServerVerticle` (mode
+dégradé si Hydra injoignable). Config : `HYDRA_JWKS_URL`, `OAUTH_CLIENT_ID`,
+`OAUTH_CLIENT_SECRET`. 22 nouveaux tests (5 TokenPrincipal + 6 HydraTokenValidator
+WireMock + 4 HydraIntrospectionClient WireMock + 7 HydraTokenFilter + 1 OauthComponents
++ 4 API contract intégration — génération RSA + JWKS mocké).
+Vérifications : `mvn verify` ✅ (78 tests total), `mvn -pl oauth verify` ✅.
 
 **Phase 7 — Intégration Keto (permissions par tenant)**
 Client Keto (check relation tuple : `tenant:<slug>::<relation>::<subject>`).

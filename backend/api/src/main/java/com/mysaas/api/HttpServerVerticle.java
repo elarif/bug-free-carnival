@@ -4,12 +4,17 @@ import com.mysaas.api.config.AppConfig;
 import com.mysaas.api.health.HealthHandler;
 import com.mysaas.identity.IdentityComponents;
 import com.mysaas.identity.RegistrationWebhookHandler;
+import com.mysaas.oauth.HydraTokenFilter;
+import com.mysaas.oauth.OauthComponents;
+import com.mysaas.oauth.TokenPrincipal;
 import com.mysaas.tenant.TenantAdminHandler;
 import com.mysaas.tenant.TenantComponents;
 import com.mysaas.tenant.TenantFilter;
 import com.mysaas.tenant.TenantResolver;
 import io.vertx.core.Future;
 import io.vertx.core.VerticleBase;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -24,6 +29,7 @@ public class HttpServerVerticle extends VerticleBase {
   private final AppConfig appConfig;
   private Optional<TenantComponents> tenants = Optional.empty();
   private Optional<IdentityComponents> identity = Optional.empty();
+  private Optional<OauthComponents> oauth = Optional.empty();
 
   public HttpServerVerticle(AppConfig appConfig) {
     this.appConfig = appConfig;
@@ -38,6 +44,9 @@ public class HttpServerVerticle extends VerticleBase {
 
     // Couche identity : session Kratos + webhook after-registration
     initIdentityLayer(router);
+
+    // Couche oauth : validation Bearer token (JWT JWKS + introspection fallback)
+    initOauthLayer(router);
 
     HealthHandler.ReadyChecker readyChecker = createReadyChecker();
     new HealthHandler(readyChecker).mount(router);
@@ -86,6 +95,55 @@ public class HttpServerVerticle extends VerticleBase {
           "Couche identity désactivée (Kratos non configuré): {} — démarrage en mode dégradé",
           e.getMessage());
     }
+  }
+
+  /** Initialise la couche oauth (HydraTokenFilter + endpoint /me). */
+  private void initOauthLayer(Router router) {
+    try {
+      OauthComponents components =
+          OauthComponents.create(
+              vertx,
+              appConfig.hydraJwksUrl(),
+              appConfig.hydraPublicUrl(),
+              appConfig.hydraAdminUrl(),
+              appConfig.oauthClientId(),
+              appConfig.oauthClientSecret());
+      this.oauth = Optional.of(components);
+
+      components.tokenFilter().mount(router);
+      mountMeEndpoint(router);
+      LOG.info(
+          "Couche oauth initialisée (Hydra JWKS: {}, admin: {})",
+          appConfig.hydraJwksUrl(),
+          appConfig.hydraAdminUrl());
+    } catch (Exception e) {
+      LOG.warn(
+          "Couche oauth désactivée (Hydra non configuré): {} — démarrage en mode dégradé",
+          e.getMessage());
+    }
+  }
+
+  /** Endpoint protégé /me — retourne le principal du token Bearer. */
+  private void mountMeEndpoint(Router router) {
+    router
+        .get("/me")
+        .handler(
+            ctx -> {
+              TokenPrincipal principal = ctx.get(HydraTokenFilter.CTX_KEY);
+              if (principal == null) {
+                ctx.response()
+                    .setStatusCode(401)
+                    .putHeader("Content-Type", "application/json")
+                    .end(new JsonObject().put("error", "unauthorized").encode());
+                return;
+              }
+              ctx.json(
+                  new JsonObject()
+                      .put("subject", principal.subject())
+                      .put("tenant_id", principal.tenantId())
+                      .put("issuer", principal.issuer())
+                      .put("scopes", new JsonArray(principal.scopes())));
+            });
   }
 
   /** Crée le checker de readiness : ping JDBC si la couche tenant est active, sinon ping TCP. */

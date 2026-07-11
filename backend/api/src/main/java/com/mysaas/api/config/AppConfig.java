@@ -16,6 +16,9 @@ public final class AppConfig {
   private final String kratosAdminUrl;
   private final String hydraPublicUrl;
   private final String hydraAdminUrl;
+  private final String hydraJwksUrl;
+  private final String oauthClientId;
+  private final String oauthClientSecret;
   private final String ketoReadUrl;
   private final String ketoWriteUrl;
 
@@ -28,6 +31,10 @@ public final class AppConfig {
     this.kratosAdminUrl = config.getString("kratos.admin.url", "http://localhost:4434");
     this.hydraPublicUrl = config.getString("hydra.public.url", "http://localhost:4444");
     this.hydraAdminUrl = config.getString("hydra.admin.url", "http://localhost:4445");
+    this.hydraJwksUrl =
+        config.getString("hydra.jwks.url", this.hydraPublicUrl + "/.well-known/jwks.json");
+    this.oauthClientId = config.getString("oauth.client.id", "mysaas-client");
+    this.oauthClientSecret = config.getString("oauth.client.secret", "mysaas-client-secret");
     this.ketoReadUrl = config.getString("keto.read.url", "http://localhost:4466");
     this.ketoWriteUrl = config.getString("keto.write.url", "http://localhost:4467");
   }
@@ -64,6 +71,18 @@ public final class AppConfig {
     return hydraAdminUrl;
   }
 
+  public String hydraJwksUrl() {
+    return hydraJwksUrl;
+  }
+
+  public String oauthClientId() {
+    return oauthClientId;
+  }
+
+  public String oauthClientSecret() {
+    return oauthClientSecret;
+  }
+
   public String ketoReadUrl() {
     return ketoReadUrl;
   }
@@ -83,6 +102,10 @@ public final class AppConfig {
     config.put("kratos.admin.url", env("KRATOS_ADMIN_URL", "http://localhost:4434"));
     config.put("hydra.public.url", env("HYDRA_PUBLIC_URL", "http://localhost:4444"));
     config.put("hydra.admin.url", env("HYDRA_ADMIN_URL", "http://localhost:4445"));
+    config.put(
+        "hydra.jwks.url", env("HYDRA_JWKS_URL", "http://localhost:4444/.well-known/jwks.json"));
+    config.put("oauth.client.id", env("OAUTH_CLIENT_ID", "mysaas-client"));
+    config.put("oauth.client.secret", env("OAUTH_CLIENT_SECRET", "mysaas-client-secret"));
     config.put("keto.read.url", env("KETO_READ_URL", "http://localhost:4466"));
     config.put("keto.write.url", env("KETO_WRITE_URL", "http://localhost:4467"));
     return new AppConfig(config);
