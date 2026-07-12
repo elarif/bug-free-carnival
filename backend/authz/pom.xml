@@ -20,6 +20,14 @@
     </dependency>
     <dependency>
       <groupId>com.mysaas</groupId>
+      <artifactId>mysaas-identity</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.mysaas</groupId>
+      <artifactId>mysaas-oauth</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.mysaas</groupId>
       <artifactId>mysaas-tenant</artifactId>
     </dependency>
     <dependency>
@@ -39,6 +47,11 @@
       <artifactId>slf4j-api</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>
       <scope>test</scope>
@@ -46,6 +59,11 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

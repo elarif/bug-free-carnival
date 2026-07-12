@@ -2,6 +2,7 @@ package com.mysaas.api;
 
 import com.mysaas.api.config.AppConfig;
 import com.mysaas.api.health.HealthHandler;
+import com.mysaas.authz.AuthzComponents;
 import com.mysaas.identity.IdentityComponents;
 import com.mysaas.identity.RegistrationWebhookHandler;
 import com.mysaas.oauth.HydraTokenFilter;
@@ -30,6 +31,7 @@ public class HttpServerVerticle extends VerticleBase {
   private Optional<TenantComponents> tenants = Optional.empty();
   private Optional<IdentityComponents> identity = Optional.empty();
   private Optional<OauthComponents> oauth = Optional.empty();
+  private Optional<AuthzComponents> authz = Optional.empty();
 
   public HttpServerVerticle(AppConfig appConfig) {
     this.appConfig = appConfig;
@@ -47,6 +49,9 @@ public class HttpServerVerticle extends VerticleBase {
 
     // Couche oauth : validation Bearer token (JWT JWKS + introspection fallback)
     initOauthLayer(router);
+
+    // Couche authz : permissions par tenant via Keto
+    initAuthzLayer(router);
 
     HealthHandler.ReadyChecker readyChecker = createReadyChecker();
     new HealthHandler(readyChecker).mount(router);
@@ -119,6 +124,20 @@ public class HttpServerVerticle extends VerticleBase {
     } catch (Exception e) {
       LOG.warn(
           "Couche oauth désactivée (Hydra non configuré): {} — démarrage en mode dégradé",
+          e.getMessage());
+    }
+  }
+
+  /** Initialise la couche authz (KetoAuthzFilter — permissions par tenant). */
+  private void initAuthzLayer(Router router) {
+    try {
+      AuthzComponents components = AuthzComponents.create(vertx, appConfig.ketoReadUrl());
+      this.authz = Optional.of(components);
+      components.authzFilter().mount(router);
+      LOG.info("Couche authz initialisée (Keto read: {})", appConfig.ketoReadUrl());
+    } catch (Exception e) {
+      LOG.warn(
+          "Couche authz désactivée (Keto non configuré): {} — démarrage en mode dégradé",
           e.getMessage());
     }
   }

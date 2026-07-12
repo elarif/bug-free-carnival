@@ -97,7 +97,7 @@ Le projet suit un plan en 8 phases avec vérifications à chaque jalon.
 | 4     | Couche tenant (résolution + schémas Postgres)      | ✅ Terminée  |
 | 5     | Intégration Kratos (sessions + webhooks)           | ✅ Terminée  |
 | 6     | Intégration Hydra (resource server, JWT)           | ✅ Terminée  |
-| 7     | Intégration Keto (permissions par tenant)           | À venir      |
+| 7     | Intégration Keto (permissions par tenant)           | ✅ Terminée  |
 | 8     | Pipeline CI + documentation                         | À venir      |
 
 ### Détail des phases
@@ -191,6 +191,17 @@ Client Keto (check relation tuple : `tenant:<slug>::<relation>::<subject>`).
 `KetoAuthzFilter` combinant `TenantContext` + `Identity` + permission. Annotations
 sur routes. Tests unitaires (mock Keto) + tests API contract (Pact).
 Vérifications : user sans perm sur tenant B → 403 ; même user sur tenant A → 200.
+
+Implémentation : `KetoClient` (WebClient Vert.x → `GET /relation-tuples/check` sur
+l'API read Keto, Future<Boolean>). `KetoException` (statusCode 400/500).
+`KetoAuthzFilter` (order -70, après tenant -100, identity -90, oauth -80). Récupère le
+`TenantContext` + le subject depuis `Identity` (Kratos) ou `TokenPrincipal` (Hydra),
+vérifie `Tenant:<slug>#access@<subject>` ; 403 si refusé, 503 si Keto injoignable.
+Exempte `/health`, `/ready`, `/admin/*`, `/webhooks/*`. `AuthzComponents` (factory prod).
+Câblage dans `HttpServerVerticle` (mode dégradé si Keto injoignable). 16 nouveaux tests
+(4 KetoClient WireMock + 7 KetoAuthzFilter + 1 AuthzComponents + 4 API contract
+intégration — user autorisé sur tenant A / refusé sur tenant B / Keto down).
+Vérifications : `mvn verify` ✅ (89 tests total), `mvn -pl authz verify` ✅.
 
 **Phase 8 — Pipeline CI + documentation**
 GitHub Actions (build, tests, lint, helm lint, kubeval, build image → GHCR).
